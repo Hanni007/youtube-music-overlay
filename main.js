@@ -1,11 +1,11 @@
 const { app, BrowserWindow, Tray, Menu, globalShortcut } = require('electron');
 const path = require('path');
-const { getActiveSessions, onSessionsChanged, sendControl, ControlTypes } = require('windows-media-sessions');
 
 let tray = null;
 let overlayWin = null;
 let isOverlayVisible = true;
-let currentSong = { title: '', artist: '', thumbnail: '', progress: 0, duration: 0, isPaused: true };
+let ws = null;
+let reconnectTimer = null;
 
 function createOverlay() {
   overlayWin = new BrowserWindow({
@@ -22,55 +22,80 @@ function createOverlay() {
   overlayWin.setIgnoreMouseEvents(true, { forward: true });
 }
 
-function sendMediaControl(action) {
+// 通过 WebSocket 连接 Pear Desktop 的 Companion API
+function connectWebSocket() {
   try {
-    if (action === 'playpause') sendControl(ControlTypes.PLAY_PAUSE);
-    else if (action === 'next') sendControl(ControlTypes.NEXT);
-    else if (action === 'previous') sendControl(ControlTypes.PREVIOUS);
-  } catch (e) { /* 忽略错误 */ }
+    ws = new (require('ws'))('ws://localhost:9863/companion');
+    
+    ws.on('open', () => {
+      console.log('✅ 已连接到 Pear Desktop');
+      if (overlayWin && !overlayWin.isDestroyed()) {
+        overlayWin.webContents.send('connection-status', '已连接 🟢');
+      }
+    });
+
+    ws.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        // 处理歌曲更新
+        if (msg.payload && msg.payload.track) {
+          const track = msg.payload.track;
+          const timeline = msg.payload.timeline;
+          const songData = {
+            title: track.title || '',
+            artist: track.artist || '',
+            thumbnail: track.thumbnail || '',
+            progress: timeline?.positionMs || 0,
+            duration: timeline?.durationMs || 0,
+            isPaused: msg.payload.playbackStatus !== 'playing'
+          };
+          if (overlayWin && !overlayWin.isDestroyed()) {
+            overlayWin.webContents.send('song-update', songData);
+          }
+        }
+      } catch (e) {}
+    });
+
+    ws.on('error', (err) => {
+      console.log('⚠️ WebSocket 连接失败，等待重连...');
+      if (overlayWin && !overlayWin.isDestroyed()) {
+        overlayWin.webContents.send('connection-status', '未连接 ⚠️');
+      }
+      reconnectLater();
+    });
+
+    ws.on('close', () => {
+      console.log('🔌 连接已断开');
+      reconnectLater();
+    });
+  } catch (e) {
+    reconnectLater();
+  }
 }
 
-function startMediaListener() {
-  async function updateSong() {
-    try {
-      const sessions = await getActiveSessions();
-      const ytSession = sessions.find(s => s.sourceAppDisplayName && (s.sourceAppDisplayName.includes('YouTube') || s.sourceAppDisplayName.includes('Pear')));
-      if (ytSession) {
-        currentSong.title = ytSession.title || '';
-        currentSong.artist = ytSession.artist || '';
-        currentSong.thumbnail = ytSession.thumbnail || '';
-        currentSong.progress = ytSession.timeline?.positionMs || 0;
-        currentSong.duration = ytSession.timeline?.durationMs || 0;
-        currentSong.isPaused = ytSession.playbackStatus !== 'playing';
-        if (overlayWin && !overlayWin.isDestroyed()) {
-          overlayWin.webContents.send('song-update', currentSong);
-        }
-      }
-    } catch (e) {}
-  }
-  updateSong();
-  setInterval(updateSong, 1500);
-  onSessionsChanged((sessions) => {
-    const ytSession = sessions.find(s => s.sourceAppDisplayName && (s.sourceAppDisplayName.includes('YouTube') || s.sourceAppDisplayName.includes('Pear')));
-    if (ytSession) {
-      currentSong.title = ytSession.title || '';
-      currentSong.artist = ytSession.artist || '';
-      currentSong.thumbnail = ytSession.thumbnail || '';
-      currentSong.progress = ytSession.timeline?.positionMs || 0;
-      currentSong.duration = ytSession.timeline?.durationMs || 0;
-      currentSong.isPaused = ytSession.playbackStatus !== 'playing';
-      if (overlayWin && !overlayWin.isDestroyed()) {
-        overlayWin.webContents.send('song-update', currentSong);
-      }
-    }
-  });
+function reconnectLater() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    connectWebSocket();
+  }, 3000);
+}
+
+// 控制播放（通过HTTP API）
+function sendMediaControl(action) {
+  const url = `http://localhost:9863/api/v1/control/${action}`;
+  fetch(url, { method: 'POST', mode: 'no-cors' }).catch(() => {});
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, 'icon.ico');
-  tray = new Tray(iconPath);
+  tray = new Tray(path.join(__dirname, 'icon.ico'));
   const contextMenu = Menu.buildFromTemplate([
-    { label: '👁 显示/隐藏', click: () => { isOverlayVisible = !isOverlayVisible; overlayWin[isOverlayVisible ? 'show' : 'hide'](); } },
+    { label: '👁 显示/隐藏', click: () => { 
+        isOverlayVisible = !isOverlayVisible; 
+        if (overlayWin && !overlayWin.isDestroyed()) {
+          isOverlayVisible ? overlayWin.show() : overlayWin.hide();
+        }
+      } 
+    },
     { type: 'separator' },
     { label: '⏮ 上一首', click: () => sendMediaControl('previous') },
     { label: '⏸ 播放/暂停', click: () => sendMediaControl('playpause') },
@@ -85,9 +110,13 @@ function createTray() {
 app.whenReady().then(() => {
   createOverlay();
   createTray();
-  startMediaListener();
+  setTimeout(connectWebSocket, 1000);
   globalShortcut.register('P', () => { if (tray) tray.popUpContextMenu(); });
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('will-quit', () => { globalShortcut.unregisterAll(); });
+app.on('will-quit', () => { 
+  globalShortcut.unregisterAll();
+  if (ws) ws.close();
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+});
