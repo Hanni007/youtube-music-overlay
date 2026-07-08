@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Overlay</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:transparent; overflow:hidden; user-select:none; }
+    #container {
+      display:none; background:rgba(10,10,20,0.75); backdrop-filter:blur(20px);
+      border-radius:16px; padding:14px 20px; font-family:'Segoe UI','Microsoft YaHei',sans-serif;
+      align-items:center; gap:16px; min-width:340px;
+      border:1px solid rgba(255,255,255,0.1); box-shadow:0 12px 48px rgba(0,0,0,0.6);
+    }
+    #drag-handle { position:absolute; top:0; left:0; right:0; height:30px; -webkit-app-region:drag; }
+    #album-art { width:70px; height:70px; border-radius:10px; object-fit:cover; flex-shrink:0; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+    .info { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+    #song-title { font-size:20px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:text-shadow 0.1s; }
+    #song-artist { font-size:14px; color:rgba(255,255,255,0.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .progress-wrap { width:100%; height:3px; background:rgba(255,255,255,0.15); border-radius:4px; overflow:hidden; margin-top:6px; }
+    #progress { height:100%; width:0%; background:linear-gradient(90deg,#a855f7,#3b82f6); border-radius:4px; transition:width 0.2s; }
+    .right-area { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+    #status-dot { width:10px; height:10px; border-radius:50%; background:#51cf66; box-shadow:0 0 12px #51cf66; }
+    #subtitle-text { font-size:12px; color:rgba(255,255,255,0.5); letter-spacing:1px; }
+  </style>
+</head>
+<body>
+<div id="container">
+  <div id="drag-handle"></div>
+  <img id="album-art" src="" alt="封面">
+  <div class="info">
+    <div id="song-title">等待播放</div>
+    <div id="song-artist">-</div>
+    <div class="progress-wrap"><div id="progress"></div></div>
+  </div>
+  <div class="right-area">
+    <div id="subtitle-text">● 就绪</div>
+    <div id="status-dot"></div>
+  </div>
+</div>
+<script src="renderer.js"></script>
+</body>
+</html>
