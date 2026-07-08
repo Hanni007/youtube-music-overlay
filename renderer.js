@@ -8,9 +8,16 @@ ipcRenderer.on('song-update', (event, data) => {
   updateDisplay();
 });
 
+ipcRenderer.on('connection-status', (event, status) => {
+  document.getElementById('subtitle-text').textContent = status;
+});
+
 function updateDisplay() {
   const container = document.getElementById('container');
-  if (!songData || !songData.title) { container.style.display = 'none'; return; }
+  if (!songData || !songData.title) { 
+    container.style.display = 'none'; 
+    return; 
+  }
   container.style.display = 'flex';
   document.getElementById('album-art').src = songData.thumbnail || '';
   document.getElementById('song-title').textContent = songData.title;
@@ -18,7 +25,6 @@ function updateDisplay() {
   const pct = songData.duration > 0 ? (songData.progress / songData.duration) * 100 : 0;
   document.getElementById('progress').style.width = Math.min(pct, 100) + '%';
   document.getElementById('status-dot').style.background = songData.isPaused ? '#ff6b6b' : '#51cf66';
-  document.getElementById('subtitle-text').textContent = songData.isPaused ? '⏸ 已暂停' : '▶ 播放中';
 }
 
 function startRainbow() {
