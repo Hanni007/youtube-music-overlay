@@ -1,0 +1,32 @@
+{
+  "name": "youtube-music-overlay",
+  "version": "1.0.0",
+  "description": "YouTube Music Overlay",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "windows-media-sessions": "^1.0.0"
+  },
+  "build": {
+    "appId": "com.ymoverlay.app",
+    "productName": "YouTube Music Overlay",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
