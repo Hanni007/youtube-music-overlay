@@ -11,6 +11,9 @@
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1"
   },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
   "build": {
     "appId": "com.ymoverlay.app",
     "productName": "YouTube Music Overlay",
