@@ -10,30 +10,21 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: 1. 下载代码
+      - name: 下载代码
         uses: actions/checkout@v4
 
-      - name: 2. 安装 Node.js
+      - name: 安装 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: 3. 安装 Python（编译时需要）
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: 4. 安装 Visual Studio 编译工具（这一步是关键）
-        run: |
-          choco install visualstudio2022buildtools -y --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows10SDK.20348"
-
-      - name: 5. 安装项目依赖
+      - name: 安装依赖（不需要编译任何原生模块）
         run: npm install
 
-      - name: 6. 打包成 EXE
+      - name: 打包成 EXE
         run: npm run dist
 
-      - name: 7. 上传安装包
+      - name: 上传安装包
         uses: actions/upload-artifact@v4
         with:
           name: YouTube-Music-Overlay-安装包
